@@ -1,3 +1,23 @@
+# Libraries for data loading, data manipulation and data visulisation
+import pandas as pd
+import matplotlib.pyplot as plt
+import pandas as pd
+import string
+import spacy
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from gensim.models import Word2Vec
+import plotly.express as px
+import xgboost as xgb
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+from matplotlib_venn import venn3
+from wordcloud import WordCloud
+import string
+import re
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import streamlit as st
 import joblib
 import os
@@ -12,7 +32,19 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from pathlib import Path
 import warnings
-warnings.filterwarnings("ignore")
+
+# Libraries for data preparation and model building
+#import *
+#nltk.download(['punkt','stopwords','wordnet'])
+
+# Setting global constants to ensure notebook results are reproducible
+#PARAMETER_CONSTANT = ###
+
+#making sure that we can see all rows and cols
+# pd.set_option('display.max_columns', None)
+# pd.set_option('display.max_rows', None)
+# pd.set_option('display.max_colwidth', None)
+#warnings.filterwarnings("ignore")
 
 # Define file paths
 models_dir = Path("resources/models")
@@ -71,11 +103,6 @@ def list_to_string(lst):
     """
     return ' '.join(lst)
 
-import string
-import re
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-
 # Function to remove punctuation
 def remove_punctuation(text):
     """
@@ -103,7 +130,7 @@ def preprocess_text(text):
     """
 
     # Convert text to lowercase
-    text = text.lower()
+    text = list_to_string(text)
 
     # Define the patterns for detecting URLs and email addresses
     pattern_url = r'http\S+'
@@ -136,25 +163,26 @@ def tokenize_message(text):
 
     # Tokenization
     tokens = word_tokenize(text)
+    badwords = ['email-address','url-web']
 
     # Remove stopwords
     stop_words = set(stopwords.words('english'))
 
     # Remove stopwords and punctuation
-    return [word for word in tokens if word not in stop_words and len(word) > 2]
+    return [word for word in tokens if word not in stop_words and len(word) > 2 and word not in badwords]
 
 
 # Function to preprocess the data
 def preprocess_data(data):
     # Convert the message column from string to list
-    data['processed_message'] = data['message'].apply(string_to_list)
+    data['processed_text'] = data['message'].apply(string_to_list)
 
     # Apply text preprocessing steps
-    data['processed_message'] = data['message'].apply(preprocess_text)
-    data['processed_message'] = data['message'].apply(tokenize_message)
+    data['processed_text'] = data['processed_text'].apply(preprocess_text)
+    data['processed_text'] = data['processed_text'].apply(tokenize_message)
 
     # Convert the message column back to string
-    data['processed_message'] = data['message'].apply(list_to_string)
+    data['processed_text'] = data['processed_text'].apply(list_to_string)
 
     return data
 
@@ -172,22 +200,41 @@ def plot_sentiment_distribution(data, sentiment_mapping):
 
 # Function to plot model evaluation metrics
 def plot_model_metrics(metrics_df):
-    metric_names = ["Accuracy", "Precision", "Recall", "F1-Score"]
+    import numpy as np
 
-    chart = alt.Chart(metrics_df).transform_fold(
-        metric_names,
-        as_=["Metric", "Value"]
-    ).mark_line().encode(
-        x="Model",
-        y="Value",
-        color="Metric",
-        tooltip=["Metric", "Value"]
-    ).properties(
-        width=500,
-        height=300
-    )
+    np.random.seed(42)
 
-    st.altair_chart(chart)
+    # Generating Data
+    source = pd.DataFrame({
+        'Trial A': np.random.normal(0, 0.8, 1000),
+        'Trial B': np.random.normal(-2, 1, 1000),
+        'Trial C': np.random.normal(3, 2, 1000)
+    })
+
+    alt.Chart(source).transform_fold(
+        ['Trial A', 'Trial B', 'Trial C'],
+        as_=['Experiment', 'Measurement']
+    ).mark_bar(opacity=0.3,
+               binSpacing=0).encode(alt.X('Measurement:Q').bin(maxbins=100),
+                             alt.Y('count()').stack(None),
+                             alt.Color('Experiment:N'))
+    
+
+    # metric_names = ["Accuracy", "Precision", "Recall", "F1-Score"]
+    # chart = alt.Chart(metrics_df).transform_fold(
+    #     metric_names,
+    #     as_=["Metric", "Value"]
+    # ).mark_line().encode(
+    #     x="Model",
+    #     y="Value",
+    #     color="Metric",
+    #     tooltip=["Metric", "Value"]
+    # ).properties(
+    #     width=500,
+    #     height=300
+    # )
+
+    # st.altair_chart(chart)
 
 # Train and evaluate models
 def train_and_evaluate_models(model_names, training_data, tweet_cv):
@@ -210,7 +257,11 @@ def train_and_evaluate_models(model_names, training_data, tweet_cv):
         else:
             raise ValueError("Invalid model name.")
 
-        X_train = tweet_cv.transform(training_data['message']).toarray()
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        # tf = TfidfVectorizer(max_features=3000)
+        # X = tf.fit_transform(df['preprocessed_message']).toarray()
+        # y = np.array(df['sentiment'])
+        X_train = tweet_cv.transform(training_data['processed_text']).toarray()
         y_train = training_data['sentiment']
 
         # Perform grid search for hyperparameter tuning
