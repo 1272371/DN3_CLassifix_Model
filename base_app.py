@@ -1,383 +1,65 @@
-# Libraries for data loading, data manipulation and data visulisation
 import pandas as pd
-import matplotlib.pyplot as plt
-import pandas as pd
-import string
-import spacy
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from gensim.models import Word2Vec
-import plotly.express as px
-import xgboost as xgb
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation
-from matplotlib_venn import venn3
-from wordcloud import WordCloud
-import string
-import re
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 import streamlit as st
-import joblib
-import os
-import nltk
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import altair as alt
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GridSearchCV
-from pathlib import Path
-import warnings
+from sklearn.feature_extraction.text import TfidfVectorizer
+from preprocess import *
 
-# Libraries for data preparation and model building
-#import *
-#nltk.download(['punkt','stopwords','wordnet'])
-
-# Setting global constants to ensure notebook results are reproducible
-#PARAMETER_CONSTANT = ###
-
-#making sure that we can see all rows and cols
-# pd.set_option('display.max_columns', None)
-# pd.set_option('display.max_rows', None)
-# pd.set_option('display.max_colwidth', None)
-#warnings.filterwarnings("ignore")
-
-# Define file paths
-models_dir = Path("resources/models")
-data_dir = Path("resources/data")
-vectorizer_path = models_dir / "tfidfvect.pkl"
-models = {
-    "Logistic Regression": models_dir / "Logistic_regression.pkl",
-    "Random Forest": models_dir / "Random_forest.pkl"
-}
-train_data_path = data_dir / "train.csv"
-
-# Load the vectorizer
-def load_vectorizer():
-    return joblib.load(vectorizer_path)
-
-# Load the pre-trained models
-def load_models():
-    loaded_models = {}
-    for model_name, model_path in models.items():
-        loaded_models[model_name] = joblib.load(model_path)
-    return loaded_models
-
-# Save the trained models
-def save_models(trained_models):
-    for model_name, model in trained_models.items():
-        model_path = models[model_name]
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
-        joblib.dump(model, model_path)
-
-# Load the raw data
-def load_raw_data():
-    return pd.read_csv(train_data_path)
-
-def string_to_list(text):
-    """
-    Converts a string into a list by splitting it using spaces as the delimiter.
-
-    Args:
-        text (str): The input string to be converted.
-
-    Returns:
-        list: The resulting list after splitting the string.
-    """
-    return text.split(' ')
-
-
-def list_to_string(lst):
-    """
-    Converts a list into a string by joining the elements with spaces.
-
-    Args:
-        lst (list): The input list to be converted.
-
-    Returns:
-        str: The resulting string after joining the list elements.
-    """
-    return ' '.join(lst)
-
-# Function to remove punctuation
-def remove_punctuation(text):
-    """
-    Removes punctuation characters from the given text.
-
-    Args:
-        text (str): The input text.
-
-    Returns:
-        str: The text with punctuation removed.
-    """
-    return ''.join([l for l in text if l not in string.punctuation])
-
-# Preprocessing function
-def preprocess_text(text):
-    """
-    Preprocesses the given text by converting it to lowercase, replacing URLs and email addresses with placeholders,
-    and removing punctuation.
-
-    Args:
-        text (str): The input text.
-
-    Returns:
-        str: The preprocessed text.
-    """
-
-    # Convert text to lowercase
-    text = list_to_string(text)
-
-    # Define the patterns for detecting URLs and email addresses
-    pattern_url = r'http\S+'
-    pattern_email = r'\S+@\S+'
-
-    # Replace URLs and email addresses with placeholders
-    subs_url = 'url-web'
-    subs_email = 'email-address'
-    text = re.sub(pattern_url, subs_url, text)
-    text = re.sub(pattern_email, subs_email, text)
-    text = re.sub(r'\W+', '', text)
-
-    # Remove web-urls
-    text = re.sub(pattern_url, subs_url, text)
-
-    # Return preprocessed text as a string
-    return remove_punctuation(text)
-
-# Tokenize message
-def tokenize_message(text):
-    """
-    Tokenizes the given text by splitting it into words, removing stopwords, and removing words with a length less than or equal to 2.
-
-    Args:
-        text (str): The input text.
-
-    Returns:
-        list: The tokenized words.
-    """
-
-    # Tokenization
-    tokens = word_tokenize(text)
-    badwords = ['email-address','url-web']
-
-    # Remove stopwords
-    stop_words = set(stopwords.words('english'))
-
-    # Remove stopwords and punctuation
-    return [word for word in tokens if word not in stop_words and len(word) > 2 and word not in badwords]
-
-
-# Function to preprocess the data
-def preprocess_data(data):
-    # Convert the message column from string to list
-    data['processed_text'] = data['message'].apply(string_to_list)
-
-    # Apply text preprocessing steps
-    data['processed_text'] = data['processed_text'].apply(preprocess_text)
-    data['processed_text'] = data['processed_text'].apply(tokenize_message)
-
-    # Convert the message column back to string
-    data['processed_text'] = data['processed_text'].apply(list_to_string)
-
-    return data
-
-
-# Function to plot sentiment label distribution
-def plot_sentiment_distribution(data, sentiment_mapping):
-    sns.set(style="darkgrid")
-    plt.figure(figsize=(8, 6))
-    ax = sns.countplot(data=data, x='sentiment')
-    ax.set_xlabel('Sentiment Label')
-    ax.set_ylabel('Count')
-    ax.set_title('Sentiment Label Distribution')
-    ax.set_xticklabels([sentiment_mapping[label] for label in ax.get_xticks()], rotation=30, size=10)
-    st.pyplot(plt)
-
-# Function to plot model evaluation metrics
-def plot_model_metrics(metrics_df):
-    import numpy as np
-
-    np.random.seed(42)
-
-    # Generating Data
-    source = pd.DataFrame({
-        'Trial A': np.random.normal(0, 0.8, 1000),
-        'Trial B': np.random.normal(-2, 1, 1000),
-        'Trial C': np.random.normal(3, 2, 1000)
-    })
-
-    alt.Chart(source).transform_fold(
-        ['Trial A', 'Trial B', 'Trial C'],
-        as_=['Experiment', 'Measurement']
-    ).mark_bar(opacity=0.3,
-               binSpacing=0).encode(alt.X('Measurement:Q').bin(maxbins=100),
-                             alt.Y('count()').stack(None),
-                             alt.Color('Experiment:N'))
-    
-
-    # metric_names = ["Accuracy", "Precision", "Recall", "F1-Score"]
-    # chart = alt.Chart(metrics_df).transform_fold(
-    #     metric_names,
-    #     as_=["Metric", "Value"]
-    # ).mark_line().encode(
-    #     x="Model",
-    #     y="Value",
-    #     color="Metric",
-    #     tooltip=["Metric", "Value"]
-    # ).properties(
-    #     width=500,
-    #     height=300
-    # )
-
-    # st.altair_chart(chart)
-
-# Train and evaluate models
-def train_and_evaluate_models(model_names, training_data, tweet_cv):
-    trained_models = {}
-    metrics = []
-
-    for model_name in model_names:
-        if model_name == "Logistic Regression":
-            model = LogisticRegression()
-            param_grid = {
-                'C': [0.1, 1.0, 10.0],
-                'solver': ['liblinear', 'saga']
-            }
-        elif model_name == "Random Forest":
-            model = RandomForestClassifier()
-            param_grid = {
-                'n_estimators': [100, 200, 500],
-                'max_depth': [None, 5, 10]
-            }
-        else:
-            raise ValueError("Invalid model name.")
-
-        from sklearn.feature_extraction.text import TfidfVectorizer
-        # tf = TfidfVectorizer(max_features=3000)
-        # X = tf.fit_transform(df['preprocessed_message']).toarray()
-        # y = np.array(df['sentiment'])
-        X_train = tweet_cv.transform(training_data['processed_text']).toarray()
-        y_train = training_data['sentiment']
-
-        # Perform grid search for hyperparameter tuning
-        grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='accuracy', cv=3)
-        grid_search.fit(X_train, y_train)
-
-        best_model = grid_search.best_estimator_
-        trained_models[model_name] = best_model
-
-        model_path = models[model_name]
-        joblib.dump(best_model, model_path)
-
-        # Evaluate model metrics
-        y_pred = best_model.predict(X_train)
-        accuracy = accuracy_score(y_train, y_pred)
-        precision = precision_score(y_train, y_pred, average='macro')
-        recall = recall_score(y_train, y_pred, average='macro')
-        f1 = f1_score(y_train, y_pred, average='macro')
-
-        metrics.append({
-            'Model': model_name,
-            'Accuracy': accuracy,
-            'Precision': precision,
-            'Recall': recall,
-            'F1-Score': f1
-        })
-
-    metrics_df = pd.DataFrame(metrics)
-    return trained_models, metrics_df
 
 # Main function
 def main():
-    # Streamlit configurations
     st.set_page_config(layout="wide")
-
-    # Load the vectorizer and models
-    vectorizer = load_vectorizer()
     loaded_models = load_models()
-    trained_model_names = list(loaded_models.keys())  # Get the trained model names
-
-
-    # Load the raw data
     raw_data = load_raw_data()
 
-    # Sentiment label mapping
-    sentiment_mapping = {0: 'Anti', 1: 'Neutral', 2: 'Pro', 3: 'News'}
+    vectorizer = TfidfVectorizer(max_features=100)
 
     st.title("Tweet Classifier")
-    st.subheader("Climate change tweet classification")
+    st.sidebar.title("Options")
 
-    # Sidebar options
-    options = ["Prediction", "Training", "Information"]
-    selection = st.sidebar.selectbox("Choose Option", options, key="selection")
+    page = st.sidebar.selectbox("Choose a page", ["Home", "Train Models", "Predict"])
 
-    if selection == "Information":
-        st.sidebar.info("General Information")
-        st.sidebar.markdown("Some information here")
+    if page == "Home":
+        st.write("Welcome to the Tweet Classifier app!")
+        st.write("Use the sidebar to navigate to different pages.")
 
-        show_raw_data = st.sidebar.checkbox('Show Raw Data')
+    elif page == "Train Models":
+        st.write("### Train Models")
+        st.write("Load and preprocess the training data:")
+        preprocessed_data = preprocess_data(raw_data)
 
-        st.subheader("Sentiment Label Distribution")
-        plot_sentiment_distribution(raw_data, sentiment_mapping)
+        model_names = st.multiselect("Select models to train", list(loaded_models.keys()))
 
-        if show_raw_data:
-            st.subheader("Raw Twitter Data and Label")
-            st.write(raw_data[['sentiment', 'message']])
+        if st.button("Train Models"):
+            # Show loading slide
+            with st.spinner("Training models in progress..."):
+                import time
+                time.sleep(3)  # Simulating training process (remove this line in your actual code)
+                trained_models, metrics_df = train_and_evaluate_models(model_names, preprocessed_data, vectorizer)
+            # Hide loading slide and display success message
+            st.success("Models trained successfully.")
 
-    elif selection == "Prediction":
-        st.info("Prediction with ML Models")
-        tweet_text = st.text_area("Enter Text", "Type Here")
+            save_models(trained_models)  # Save the trained models
+            st.success("Models saved successfully.")
 
-        if st.button("Classify"):
-            if not tweet_text:
-                st.warning("Please enter some text.")
-            else:
-                try:
-                    vect_text = vectorizer.transform([tweet_text]).toarray()
+            st.subheader("Model Evaluation Metrics")
+            st.write(metrics_df)
 
-                    # Model selection
-                    model_name = st.selectbox("Select Model", list(loaded_models.keys()), key="model_selection")
-                    model = loaded_models[model_name]
-                    prediction = model.predict(vect_text)
-                    sentiment_label = sentiment_mapping[prediction[0]]
+            for model_name, model in trained_models.items():
+                st.write("- ", model_name)
 
-                    st.success("Text Categorized as: {}".format(sentiment_label))
-                except Exception as e:
-                    st.error("An error occurred while performing classification.")
-                    st.error(str(e))
+            st.write("Model Evaluation Metrics:")
+            st.write(metrics_df)
 
-    elif selection == "Training":
-        st.info("Model Training")
-        uploaded_file = st.file_uploader("Upload Training Data (CSV)", type="csv")
+    elif page == "Predict":
+        st.write("### Predict")
+        message = st.text_input("Enter a tweet:")
+        selected_model = st.selectbox("Select a model", list(loaded_models.keys()))
 
-        if uploaded_file:
-            training_data = pd.read_csv(uploaded_file)
-            st.subheader("Training Data Preview")
-            st.write(training_data)
+        if st.button("Predict"):
+            processed_message = preprocess_data(pd.DataFrame({'message': [message]}))
+            X_test = vectorizer.transform(processed_message['processed_text']).toarray()
+            model = loaded_models[selected_model]
+            prediction = model.predict(X_test)[0]
+            st.write("Predicted Sentiment:", prediction)
 
-            train_model_names = st.multiselect("Select Models for Training", trained_model_names, key="training_model_selection")  # Use trained model names in the multiselect widget
-
-            if st.button("Train Models"):
-                try:
-                    preprocessed_data = preprocess_data(training_data)
-                    trained_models, metrics_df = train_and_evaluate_models(train_model_names, preprocessed_data, vectorizer)
-                    save_models(trained_models)  # Save the trained models
-                    st.success("Models trained and saved successfully.")
-
-                    st.subheader("Model Evaluation Metrics")
-                    st.write(metrics_df)
-
-                    st.subheader("Model Performance Comparison")
-                    plot_model_metrics(metrics_df)
-                except Exception as e:
-                    st.error("An error occurred while training the models.")
-                    st.error(str(e))
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
