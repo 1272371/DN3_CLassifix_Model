@@ -9,7 +9,7 @@ def generate_folder_structure():
     folder_structure = ""
 
     for root, dirs, files in os.walk(root_dir):
-        # Exclude directories and files
+        # Exclude directories and files.
         dirs[:] = [d for d in dirs if d not in excluded_dirs]
         files[:] = [f for f in files if f not in excluded_files]
 

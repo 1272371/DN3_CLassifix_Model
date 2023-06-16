@@ -8,6 +8,7 @@ import altair as alt
 from pathlib import Path
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
@@ -23,12 +24,13 @@ models_dir = Path("/resources/models")
 data_dir = Path("/resources/data")
 
 vectorizer_path = models_dir / "tfidfvect.pkl"
+train_data_path = data_dir / "train.csv"
+
 models = {
     "Logistic Regression": models_dir / "Logistic_regression.pkl",
     "Random Forest": models_dir / "Random_forest.pkl",
     "SVM": models_dir / "SVM.pkl"
 }
-train_data_path = data_dir / "train.csv"
 
 
 def load_vectorizer():
@@ -39,6 +41,36 @@ def load_vectorizer():
         TfidfVectorizer: The loaded TfidfVectorizer object.
     """
     return joblib.load(vectorizer_path)
+
+
+def save_vectorizer(vectorizer, path=vectorizer_path):
+    """
+    Save the TfidfVectorizer object to disk.
+
+    Args:
+        vectorizer (TfidfVectorizer): The TfidfVectorizer object to be saved.
+        path (str or Path): The path to save the vectorizer.
+    """
+    vectorizer_path = Path(path)
+    vectorizer_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(vectorizer, vectorizer_path)
+    print("Vectorizer saved successfully.")
+
+
+def train_vectorizer(data, max_features=100000, column_name='processed_text'):
+    """
+    Train a TfidfVectorizer object based on the provided training data.
+
+    Args:
+        training_data (pd.DataFrame): The training data containing the 'processed_text' column.
+        max_features (int): The maximum number of features to consider (default: 100).
+
+    Returns:
+        TfidfVectorizer: The trained TfidfVectorizer object.
+    """
+    vectorizer = TfidfVectorizer(max_features=max_features)
+    vectorizer.fit(data[column_name])
+    return vectorizer
 
 
 def load_models():
@@ -208,6 +240,13 @@ def plot_model_metrics(metrics_df):
 
 # Train and evaluate models
 def train_and_evaluate_models(model_names, training_data, vectorizer):
+
+    # After training the vectorizer
+    vectorizer = train_vectorizer(training_data)
+
+    # Save the vectorizer
+    save_vectorizer(vectorizer, f"{vectorizer_path}/vectorizer.pkl")
+
     trained_models = {}
     metrics = []
 
