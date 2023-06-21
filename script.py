@@ -1,7 +1,5 @@
 from comet_ml import Experiment
-import comet_ml
-import torch
-import torchvision
+
 from comet_ml.integration.pytorch import log_model
 from sklearn.linear_model import LinearRegression
 from sklearn.datasets import make_regression

@@ -1,0 +1,32 @@
+project/
+├── base_app.py
+├── Classification-Rubric-Student-Design-2965.pdf
+├── folder_structure.txt
+├── generate_project_structure.py
+├── preprocess.py
+├── preprocessed_data.csv
+├── README.md
+├── requirements.txt
+├── script.py
+├── tweet_classifier.log
+└── __init__.py
+resources/
+├── Classification-Rubric-Student-Design-2965.pdf
+├── info.md
+├── Logistic_regression.pkl
+└── tfidfvect.pkl
+resources\data/
+├── test_with_no_labels.csv
+└── train.csv
+resources\imgs/
+├── clone-repo.png
+├── EDSA_logo.png
+├── fork-repo.png
+├── streamlit-base-splash-screen.png
+├── streamlit-logo.png
+├── streamlit.png
+└── what-is-streamlit.png
+resources\models/
+├── Logistic_regression.pkl
+├── Random_forest.pkl
+└── tfidfvect.pkl

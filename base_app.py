@@ -1,68 +1,153 @@
-# Streamlit dependencies
-import streamlit as st
-import joblib
-import os
-
-# Data dependencies
+import time
 import pandas as pd
+import streamlit as st
+from preprocess import display_vect_metrics, most_common_word_plot, metrics_df_path, load_raw_data, preprocess_data, train_models, generate_metrics_chart, train_vectorizer, preprocess_text, save_trained_models, model_names, load_model, load_vectorizer
 
-# Vectorizer
-news_vectorizer = open("resources/models/tfidfvect.pkl", "rb")
-tweet_cv = joblib.load(news_vectorizer)
+# Define sentiment mapping as a global variable
+sentiment_mapping = {-1: 'Anti', 0: 'Neutral', 1: 'Pro', 2: 'News'}
 
-# Load your raw data
-raw = pd.read_csv("resources/data/train.csv")
+# Function to load and preprocess the training data
+def load_and_preprocess_data(uploaded_file):
+    raw_data = pd.read_csv(uploaded_file)
+    preprocessed_data = preprocess_data(raw_data)
+    preprocessed_data["mapped_sentiment"] = preprocessed_data["sentiment"].map(sentiment_mapping)
+    return preprocessed_data
 
-# The main function where we will build the actual app
+
+# Function to load the specified models
+def load_models(model_names=model_names):
+    models = {}
+    for model_name in model_names:
+        model = load_model(model_name)
+        if model is not None:
+            models[model_name] = model
+    return models
+
+
+# Function to train the selected models
+def train_selected_models(selected_models, preprocessed_data, vectorizer, split_ratio):
+    trained_models, metrics_df = train_models(selected_models, preprocessed_data, vectorizer, split_ratio)
+    return trained_models, metrics_df
+
+
+# Function to display the trained models
+def display_trained_models(models):
+    st.subheader("Trained Models")
+    if models:
+        for model_name, _ in models.items():
+            st.write(" - ", model_name)
+
+
+# Function to display the model evaluation metrics
+def display_metrics(metrics_df, display_charts=True):
+    st.subheader("Model Evaluation Metrics")
+    if not metrics_df.empty:
+        st.table(metrics_df)
+    if display_charts:
+        generate_metrics_chart(metrics_df)
+
+
+# Main function
 def main():
-    """Tweet Classifier App with Streamlit"""
+    st.set_page_config(page_title="DN3-Classifix", page_icon="⬇", layout="centered")
 
-    # Creates a main title and subheader on your page -
-    # these are static across all pages
     st.title("Tweet Classifier")
-    st.subheader("Climate change tweet classification")
+    st.sidebar.title("Options")
 
-    # Creating sidebar with selection box -
-    # you can create multiple pages this way
-    options = ["Prediction", "Information"]
-    selection = st.sidebar.selectbox("Choose Option", options)
+    sentiment_mapping = {-1: 'Anti', 0: 'Neutral', 1: 'Pro', 2: 'News'}
+    metrics_df = load_raw_data(metrics_df_path)
 
-    # Building out the "Information" page
-    if selection == "Information":
-        st.info("General Information")
-        # You can read a markdown file from supporting resources folder
-        st.markdown("Some information here")
+    page = st.sidebar.selectbox(
+        "Choose a page", ["Home", "Predict", "Train Models"])
 
-        st.subheader("Raw Twitter data and label")
-        if st.checkbox('Show raw data'):  # data is hidden if box is unchecked
-            st.write(raw[['sentiment', 'message']])  # will write the df to the page
+    if page == "Home":
+        st.write("Welcome to the Tweet Classifier app!")
+        st.info('Use the sidebar to navigate to different pages.')
+        summary_type = st.sidebar.radio('Summary:', ["Corpus", "Models"])
 
-    # Building out the prediction page
-    if selection == "Prediction":
-        st.info("Prediction with ML Models")
-        # Creating a text box for user input
-        tweet_text = st.text_area("Enter Text", "Type Here")
+        if summary_type == "Corpus":
+            bar_chart = most_common_word_plot()
+            st.altair_chart(bar_chart)
 
-        if st.button("Classify"):
-            if not tweet_text:
-                st.warning("Please enter some text.")
-            else:
-                try:
-                    # Transforming user input with vectorizer
-                    vect_text = tweet_cv.transform([tweet_text]).toarray()
-                    # Load your .pkl file with the model of your choice + make predictions
-                    # Try loading in multiple models to give the user a choice
-                    predictor = joblib.load(open(os.path.join("resources/models/Logistic_regression.pkl"), "rb"))
-                    prediction = predictor.predict(vect_text)
+        elif summary_type == "Models":
+            display_trained_models()
 
-                    # When model has successfully run, will print prediction
-                    # You can use a dictionary or similar structure to make this output
-                    # more human interpretable.
-                    st.success("Text Categorized as: {}".format(prediction))
-                except Exception as e:
-                    st.error("An error occurred while performing classification.")
-                    st.error(str(e))
+    elif page == "Predict":
+        st.write("### Predict")
+        message = st.text_input("Enter a tweet:")
 
-# Required to let Streamlit instantiate our web app.
-if __name__ == '__main__':
+        selected_model = st.selectbox("Select a model", model_names)
+
+        if st.button("Predict"):
+            processed_message = preprocess_text(message)
+            vectorizer = load_vectorizer()
+
+            Pred = vectorizer.transform([processed_message]).toarray()
+            model = load_model(selected_model)
+            prediction = model.predict(Pred)[0]
+            st.write("Predicted Sentiment: ", sentiment_mapping[prediction])
+
+    elif page == "Train Models":
+        st.info("### Model Training")
+        st.sidebar.write("### Train Models")
+        st.sidebar.write("Load and preprocess the training data:")
+
+        # Custom training data upload
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload CSV file", type=["csv"])
+
+        if uploaded_file is not None:
+            preprocessed_data = load_and_preprocess_data(uploaded_file)
+
+            with st.sidebar:
+                num_features = st.slider("MAX Features", min_value=0, max_value=200000, step=1, value=3000)
+
+            if st.sidebar.button("Fit Vectorizer"):
+                with st.spinner("Training Vectorizer..."):
+                    time.sleep(2)
+                    vectorizer = train_vectorizer(preprocessed_data, num_features)
+                st.sidebar.success('Fitting vectorizer complete!')
+                display_vect_metrics(vectorizer, preprocessed_data, st)
+
+            selected_models = st.sidebar.multiselect(
+                "Select models to train", model_names)
+
+            with st.sidebar:
+                split_ratio = st.slider("Split Ratio", min_value=0.0, max_value=1.0, step=0.1, value=0.2)
+                k_fold = st.radio('Use K-Fold', ['No', 'Yes'])
+                if k_fold == "Yes":
+                    num_folds = st.slider("K-Folds", min_value=0, max_value=10, step=1, value=2)
+
+            if st.sidebar.button("Train The Models"):
+                vectorizer = load_vectorizer()
+
+                with st.spinner("Training models..."):
+                    time.sleep(2)
+                    = train_selected_models(
+                        selected_models, preprocessed_data, vectorizer, split_ratio)
+                st.sidebar.success("Models trained successfully.")
+
+                with st.spinner("Saving models..."):
+                    time.sleep(2)
+                    save_trained_models(trained_models)
+                st.success("Models saved successfully.")
+
+                with st.spinner("Displaying Model Metrics..."):
+                    time.sleep(2)
+                    display_trained_models(trained_models)
+                    display_metrics(metrics_df)
+
+    # Display model evaluation metrics and trained models
+    if page == "Home":
+        display_metrics(metrics_df)
+        models = load_models()
+        display_trained_models(models)
+
+    if page == "Predict":
+        display_metrics(metrics_df, display_charts=False)
+        models = load_models()
+        display_trained_models(models)
+
+
+if __name__ == "__main__":
     main()
