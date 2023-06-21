@@ -8,6 +8,7 @@ import altair as alt
 import xgboost as xgb
 import altair as alt
 import logging
+import nltk
 
 
 from math import ceil
@@ -32,8 +33,8 @@ logger = logging.getLogger(__name__)
 # Configure the logger to write to a file
 log_file = "training.log"
 
-# nltk.download('punkt')
-# nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('stopwords')
 
 # Set the paths
 models_dir = Path("resources/models")
@@ -42,7 +43,7 @@ vectorizer_dir = Path("resources/models/")
 
 vectorizer_path = models_dir / f"vectorizer_tfid.pkl" 
 train_data_path = data_dir / "train.csv"
-matrics_df_path = data_dir / "metrics_df.csv"
+metrics_df_path = data_dir / "metrics_df.csv"
 
 model_names = ["Logistic Regression", "Random Forest",
                "Support Vector Machine", "K-Nearest Neighbors"]
@@ -283,80 +284,6 @@ def preprocess_data(data):
     data['tokenized_message'] = data['tokenized_message'].apply(remove_stopwords)
     return data
 
-def train_models(model_names, training_data, vectorizer, split_ratio):
-    """
-    Trains multiple classification models using the provided training data and TF-IDF vectorizer.
-
-    Args:
-        model_names (list): A list of model names to train.
-        training_data (pd.DataFrame): The training data.
-        vectorizer (TfidfVectorizer): The trained TF-IDF vectorizer.
-        split_ratio (float): The ratio for train-test split.
-
-    Returns:
-        dict: A dictionary containing the trained models.
-        pd.DataFrame: A DataFrame containing the evaluation metrics for each model.
-    """
-
-    trained_models = {}
-    metrics = []
-    for model_name in model_names:
-        logger.info(f"Training model: {model_name}")
-        if model_name == "Logistic Regression":
-            model = LogisticRegression()
-            param_grid = {
-                'C': [0.1, 1.0, 5.0],
-                'solver': ['lbfgs', 'liblinear', 'newton-cg', 'newton-cholesky', 'sag', 'saga']
-            }
-        elif model_name == "Random Forest":
-            model = RandomForestClassifier()
-            param_grid = {
-                'n_estimators': [100, 200, 500],
-                'max_depth': [None, 10, 50, 100]
-            }
-        elif model_name == "Support Vector Machine":
-            model = SVC()
-            param_grid = {
-                'C': [0.1, 1.0, 10.0],
-                'kernel': ['linear', 'poly', 'rbf', 'sigmoid']
-            }
-        elif model_name == "K-Nearest Neighbors":
-            model = KNeighborsClassifier()
-            param_grid = {
-                'n_neighbors': [3, 5, 7],
-                'weights': ['uniform', 'distance']
-            }
-        else:
-            raise ValueError("Invalid model name.")
-
-        X_train = vectorizer.transform(training_data['processed_text']).toarray()
-        y_train = training_data['sentiment']
-        print(training_data['processed_text'])
-        grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='accuracy', cv=3)
-
-        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, random_state=42, test_size=split_ratio)
-
-        logger.info(f"Performing grid search for {model_name}...")
-        grid_search.fit(X_train, y_train)
-
-        best_model = grid_search.best_estimator_
-        trained_models[model_name] = best_model
-        logger.info(f"Training complete for {model_name}")
-
-        y_pred = best_model.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='macro')
-        recall = recall_score(y_test, y_pred, average='macro')
-        f1 = f1_score(y_test, y_pred, average='macro')
-
-        metrics.append([model_name, accuracy, precision, recall, f1])
-
-    metrics_df = pd.DataFrame(metrics, columns=['Model', 'Accuracy', 'Precision', 'Recall', 'F1 Score'])
-    metrics_df.to_csv(matrics_df_path, index=False)
-
-    logger.info("Training and evaluation complete for all models")
-    return trained_models, metrics_df
-
 def generate_metrics_chart(metrics_df):
     """
     Generates bar charts to visualize the evaluation metrics of the trained models.
@@ -520,3 +447,118 @@ def distribution_per_sentiment(sentiment_mapped):
     
     # Display the chart
     return combined_chart
+
+def plot_message_length(data=''):
+    """
+    Plots the message length using Altair and Streamlit.
+
+    Args:
+        data (str): Data for plotting (optional).
+
+    Returns:
+        None.
+    """
+    from vega_datasets import data
+    source = data.stocks()
+
+    base = alt.Chart(source).encode(
+        alt.Color("symbol").legend(None)
+    ).transform_filter(
+        "datum.symbol !== 'IBM'"
+    ).properties(
+        width=500
+    )
+
+    line = base.mark_line().encode(x="date", y="price")
+
+    last_price = base.mark_circle().encode(
+        alt.X("last_date['date']:T"),
+        alt.Y("last_date['price']:Q")
+    ).transform_aggregate(
+        last_date="argmax(date)",
+        groupby=["symbol"]
+    )
+
+    company_name = last_price.mark_text(align="left", dx=4).encode(text="symbol")
+
+    chart = (line + last_price + company_name).encode(
+        x=alt.X().title("date"),
+        y=alt.Y().title("price")
+    )
+
+    return chart
+
+def train_models(model_names, training_data, vectorizer, split_ratio):
+    """
+    Trains multiple classification models using the provided training data and TF-IDF vectorizer.
+
+    Args:
+        model_names (list): A list of model names to train.
+        training_data (pd.DataFrame): The training data.
+        vectorizer (TfidfVectorizer): The trained TF-IDF vectorizer.
+        split_ratio (float): The ratio for train-test split.
+
+    Returns:
+        dict: A dictionary containing the trained models.
+        pd.DataFrame: A DataFrame containing the evaluation metrics for each model.
+    """
+
+    trained_models = {}
+    metrics = []
+    for model_name in model_names:
+        logger.info(f"Training model: {model_name}")
+        if model_name == "Logistic Regression":
+            model = LogisticRegression()
+            param_grid = {
+                'C': [0.1, 1.0, 5.0],
+                'solver': ['lbfgs', 'liblinear','sag', 'saga']
+            }
+        elif model_name == "Random Forest":
+            model = RandomForestClassifier()
+            param_grid = {
+                'n_estimators': [100, 200, 500],
+                'max_depth': [10, 50, 100]
+            }
+        elif model_name == "Support Vector Machine":
+            model = SVC()
+            param_grid = {
+                'C': [0.1, 1.0, 10.0],
+                'kernel': ['linear', 'poly', 'rbf', 'sigmoid']
+            }
+        elif model_name == "K-Nearest Neighbors":
+            model = KNeighborsClassifier()
+            param_grid = {
+                'n_neighbors': [3, 5, 7],
+                'weights': ['uniform', 'distance']
+            }
+        else:
+            raise ValueError("Invalid model name.")
+
+        X_train = vectorizer.transform(training_data['processed_text']).toarray()
+        y_train = training_data['sentiment']
+        print(training_data['processed_text'].head())
+        grid_search = GridSearchCV(estimator=model, param_grid=param_grid, scoring='f1', cv=3)
+
+        X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, random_state=42, test_size=split_ratio)
+
+        logger.info(f"Performing grid search for {model_name} ...")
+        grid_search.fit(X_train, y_train)
+
+        best_model = grid_search.best_estimator_
+        trained_models[model_name] = best_model
+        logger.info(f"Training complete for {model_name}")
+
+        y_pred = best_model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred, average='macro')
+        recall = recall_score(y_test, y_pred, average='macro')
+        f1 = f1_score(y_test, y_pred, average='macro')
+
+        metrics.append([model_name, accuracy, precision, recall, f1])
+
+    metrics_df = pd.DataFrame(metrics, columns=['Model', 'Accuracy', 'Precision', 'Recall', 'F1 Score'])
+    metrics_df.to_csv(metrics_df_path, index=False)
+
+    logger.info("Training and evaluation complete for all models")
+    return trained_models, metrics_df
+

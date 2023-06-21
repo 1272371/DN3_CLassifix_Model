@@ -1,7 +1,7 @@
 import time
 import pandas as pd
 import streamlit as st
-from preprocess import display_vect_metrics, most_common_word_plot, metrics_df_path, load_raw_data, preprocess_data, train_models, generate_metrics_chart, train_vectorizer, preprocess_text, save_trained_models, model_names, load_model, load_vectorizer
+from preprocess import plot_message_length, display_vect_metrics, most_common_word_plot, metrics_df_path, load_raw_data, preprocess_data, train_models, generate_metrics_chart, train_vectorizer, preprocess_text, save_trained_models, model_names, load_model, load_vectorizer
 
 # Define sentiment mapping as a global variable
 sentiment_mapping = {-1: 'Anti', 0: 'Neutral', 1: 'Pro', 2: 'News'}
@@ -56,6 +56,7 @@ def main():
 
     sentiment_mapping = {-1: 'Anti', 0: 'Neutral', 1: 'Pro', 2: 'News'}
     metrics_df = load_raw_data(metrics_df_path)
+    models = load_models()
 
     page = st.sidebar.selectbox(
         "Choose a page", ["Home", "Predict", "Train Models"])
@@ -64,13 +65,6 @@ def main():
         st.write("Welcome to the Tweet Classifier app!")
         st.info('Use the sidebar to navigate to different pages.')
         summary_type = st.sidebar.radio('Summary:', ["Corpus", "Models"])
-
-        if summary_type == "Corpus":
-            bar_chart = most_common_word_plot()
-            st.altair_chart(bar_chart)
-
-        elif summary_type == "Models":
-            display_trained_models()
 
     elif page == "Predict":
         st.write("### Predict")
@@ -106,7 +100,7 @@ def main():
                 with st.spinner("Training Vectorizer..."):
                     time.sleep(2)
                     vectorizer = train_vectorizer(preprocessed_data, num_features)
-                st.sidebar.success('Fitting vectorizer complete!')
+                st.success('Fitting vectorizer complete!')
                 display_vect_metrics(vectorizer, preprocessed_data, st)
 
             selected_models = st.sidebar.multiselect(
@@ -123,9 +117,9 @@ def main():
 
                 with st.spinner("Training models..."):
                     time.sleep(2)
-                    = train_selected_models(
+                    trained_models, metrics_df= train_selected_models(
                         selected_models, preprocessed_data, vectorizer, split_ratio)
-                st.sidebar.success("Models trained successfully.")
+                st.success("Models trained successfully.")
 
                 with st.spinner("Saving models..."):
                     time.sleep(2)
@@ -139,14 +133,24 @@ def main():
 
     # Display model evaluation metrics and trained models
     if page == "Home":
-        display_metrics(metrics_df)
-        models = load_models()
-        display_trained_models(models)
+
+        if summary_type == "Corpus":
+            with st.spinner("Loading Data Summaries..."):
+                time.sleep(2)
+                bar_chart = most_common_word_plot()
+                st.altair_chart(bar_chart)
+
+        elif summary_type == "Models":
+            with st.spinner("Loading Model Summaries..."):
+                time.sleep(2)
+                display_metrics(metrics_df)
+                display_trained_models(models)
 
     if page == "Predict":
         display_metrics(metrics_df, display_charts=False)
-        models = load_models()
         display_trained_models(models)
+        chart = plot_message_length()
+        st.altair_chart(chart)
 
 
 if __name__ == "__main__":
