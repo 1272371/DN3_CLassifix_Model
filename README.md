@@ -17,13 +17,9 @@ For this repository, we are only concerned with a single file and resources/:
 | File Name                                                | Description   |
 | :------------------------------------------------------- | :----------------------------------- |
 | `DN3_Classifix_Model/base_app.py`                        | Base APP                             |
-| :------------------------------------------------------- | :----------------------------------- |
 | `DN3_Classifix_Model/resources/`                         | resources                            |
-| :------------------------------------------------------- | :----------------------------------- |
 | `DN3_Classifix_Model/resources/data`                     | training and testing data            |
-| :------------------------------------------------------- | :----------------------------------- |
 | `DN3_Classifix_Model/resources/imgs`                     | images used                          |
-| :------------------------------------------------------- | :------------------------------------|
 | `DN3_Classifix_Model/resources/models`                   | trained models and tokenizers        |
 
 ## 2) Usage Instructions
