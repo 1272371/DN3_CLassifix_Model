@@ -38,7 +38,7 @@ To do this, follow the steps below by running the given commands within a Git ba
 1.  Clone the _forked_ repo to your local machine.
 
 ```bash
-git clone [https://github.com/1272371/DN3_CLassifix_Model](https://github.com/1272371/DN3_CLassifix_Model).git
+git clone https://github.com/1272371/DN3_CLassifix_Model.git
 ```
 
 #### 2.2) Installing Requirements Packages from requirement file
