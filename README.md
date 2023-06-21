@@ -12,11 +12,19 @@ As part of the predict, we are expected to expand on this base template; increas
 
 ##### Description of files
 
-For this repository, we are only concerned with a single file:
+For this repository, we are only concerned with a single file and resources/:
 
 | File Name                                                | Description   |
-| :------------------------------------------------------- | :------------ |
-| `Advanced_Classification\DN3_Classifiers_Notebook.ipynb` | Base Notebook |
+| :------------------------------------------------------- | :----------------------------------- |
+| `DN3_Classifix_Model/base_app.py`                        | Base APP                             |
+| :------------------------------------------------------- | :----------------------------------- |
+| `DN3_Classifix_Model/resources/`                         | resources                            |
+| :------------------------------------------------------- | :----------------------------------- |
+| `DN3_Classifix_Model/resources/data`                     | training and testing data            |
+| :------------------------------------------------------- | :----------------------------------- |
+| `DN3_Classifix_Model/resources/imgs`                     | images used                          |
+| :------------------------------------------------------- | :------------------------------------|
+| `DN3_Classifix_Model/resources/models`                   | trained models and tokenizers        |
 
 ## 2) Usage Instructions
 
@@ -24,7 +32,7 @@ For this repository, we are only concerned with a single file:
 
 | :zap: WARNING :zap:                                                                                  |
 | :--------------------------------------------------------------------------------------------------- |
-| Do **NOT** fork this repository. Instead follow the instructions in this section to _fork_ the repo. |
+| Do **NOT** fork this repository. Instead follow the instructions in this section to _clone_ the repo. |
 
 As described within the Predict instructions for the Classification Sprint, this code represents a _template_ from which to extend your own work using development branches.
 
@@ -54,7 +62,7 @@ pip install -r requirments.txt
 2.  Open Jupyter Notebook from this directory.
 
 ```bash
-jupyter notebook
+streamlit run base_app.py
 ```
 
 If the web server was able to initialise successfully, the following message should be displayed within your bash/terminal session:
