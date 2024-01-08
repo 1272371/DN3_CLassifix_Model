@@ -1,4 +1,4 @@
-# DN3 CLASSIFIERS (NOTEBOOK)
+# DN3 CLASSIFIERS MODEL
 
 #### EXPLORE Data Science Academy Classification Predict
 
